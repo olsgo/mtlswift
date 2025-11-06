@@ -111,7 +111,6 @@ public class ASTNode {
             scanner.skipWhiteSpaces()
             _ = scanner.readSingleQuotedTextIfAny()
             scanner.skipWhiteSpaces()
-            
             let parsedValue = scanner.readInt() ?? 0
             if parsedValue == 0 {
                 Swift.print("Warning: failed to parse integer literal in: \(inputString)")
@@ -208,6 +207,15 @@ public class ASTNode {
         
         let hostName = self.children(of: .metalHostNameAttr).first?.stringValue
 
+        let shaderKind: ASTShader.Kind
+        if self.hasChildren(of: .metalKernelAttr) {
+            shaderKind = .kernel
+        } else if self.hasChildren(of: .metalFragmentAttr) {
+            shaderKind = .fragment
+        } else {
+            shaderKind = .vertex
+        }
+
         let parameterNode = self.children(of: .parmVarDecl)
         
         // this is to filter the parent of template kernels
@@ -247,18 +255,13 @@ public class ASTNode {
                                        .metalLocalIndexAttr])
                         .first?.children.first?.integerValue
 
-            return ASTShader.Parameter(name: pn.stringValue ?? "_", kind: kind, index: idx, optional: pn.hasChildren(of: .metalFunctionConstantAttr))
+            return ASTShader.Parameter(name: pn.stringValue ?? "_",
+                                       kind: kind,
+                                       index: idx,
+                                       optional: pn.hasChildren(of: .metalFunctionConstantAttr),
+                                       stage: shaderKind)
         }
-
-        let kind: ASTShader.Kind
-        
-        if self.hasChildren(of: .metalKernelAttr) {
-            kind = .kernel
-        } else if self.hasChildren(of: .metalFragmentAttr) {
-            kind = .fragment
-        } else {
-            kind = .vertex
-        }
+        let kind = shaderKind
 
         if let fullComment = self.children(of: .fullComment).first {
             for paragraph in fullComment.children(of: .paragraphComment) {
