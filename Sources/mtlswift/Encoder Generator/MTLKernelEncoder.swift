@@ -37,6 +37,15 @@ public struct MTLKernelEncoder {
         let sourceBuilder = SourceStringBuilder()
         sourceBuilder.begin()
 
+        let requiresThreadgroupMemoryCalculation = self.threadgroupMemoryCalculations.contains {
+            switch $0 {
+            case .total:
+                return false
+            case .perThread, .parameterPerThread:
+                return true
+            }
+        }
+
         sourceBuilder.add(line: "\(self.accessLevel.rawValue) class \(self.swiftName) {")
         sourceBuilder.blankLine()
         sourceBuilder.pushLevel()
@@ -86,18 +95,29 @@ public struct MTLKernelEncoder {
         for (idx, ev) in self.encodingVariants.enumerated() {
             var threadgroupParameterString = ""
             var threadgroupVariableString = ""
-            let threadgroupExpressionString = ", threadgroupSize: _threadgroupSize"
 
-            switch ev.threadgroupSize {
-            case .provided:
-                threadgroupParameterString = "threadgroupSize: MTLSize, "
-                threadgroupVariableString = "let _threadgroupSize = threadgroupSize"
-            case .max:
-                threadgroupVariableString = "let _threadgroupSize = self.pipelineState.max2dThreadgroupSize"
-            case .executionWidth:
-                threadgroupVariableString = "let _threadgroupSize = self.pipelineState.executionWidthThreadgroupSize"
-            case .constant(_, _, _):
-                threadgroupVariableString = "let _threadgroupSize = \(self.swiftName).threadgroupSize\(idx)"
+            let dispatchUsesThreadgroupSize: Bool
+            switch ev.dispatchType {
+            case .none:
+                dispatchUsesThreadgroupSize = false
+            default:
+                dispatchUsesThreadgroupSize = true
+            }
+            let needsThreadgroupSize = dispatchUsesThreadgroupSize || requiresThreadgroupMemoryCalculation
+            let threadgroupExpressionString = needsThreadgroupSize ? ", threadgroupSize: _threadgroupSize" : ""
+
+            if needsThreadgroupSize {
+                switch ev.threadgroupSize {
+                case .provided:
+                    threadgroupParameterString = "threadgroupSize: MTLSize, "
+                    threadgroupVariableString = "let _threadgroupSize = threadgroupSize"
+                case .max:
+                    threadgroupVariableString = "let _threadgroupSize = self.pipelineState.max2dThreadgroupSize"
+                case .executionWidth:
+                    threadgroupVariableString = "let _threadgroupSize = self.pipelineState.executionWidthThreadgroupSize"
+                case .constant(_, _, _):
+                    threadgroupVariableString = "let _threadgroupSize = \(self.swiftName).threadgroupSize\(idx)"
+                }
             }
 
             var gridSizeParameterString = ""
@@ -169,7 +189,9 @@ public struct MTLKernelEncoder {
                 sourceBuilder.add(line: "\(self.accessLevel.rawValue) func encode(\(parameterString)\(gridSizeParameterString)\(gridBufferParameterString)\(threadgroupParameterString)using encoder: MTLComputeCommandEncoder) {")
             }
             sourceBuilder.pushLevel()
-            sourceBuilder.add(line: threadgroupVariableString)
+            if needsThreadgroupSize {
+                sourceBuilder.add(line: threadgroupVariableString)
+            }
 
             for parameter in self.parameters {
                 switch parameter.kind {
@@ -193,9 +215,13 @@ public struct MTLKernelEncoder {
                 case .total(let index, let bytes):
                     sourceBuilder.add(line: "encoder.setThreadgroupMemoryLength(\(bytes), index: \(index))")
                 case .perThread(let index, let bytes):
-                    sourceBuilder.add(line: "encoder.setThreadgroupMemoryLength(_threadgroupSize.width * _threadgroupSize.height * _threadgroupSize.depth * \(bytes), index: \(index))")
+                    if needsThreadgroupSize {
+                        sourceBuilder.add(line: "encoder.setThreadgroupMemoryLength(_threadgroupSize.width * _threadgroupSize.height * _threadgroupSize.depth * \(bytes), index: \(index))")
+                    }
                 case .parameterPerThread(let index, let parameter):
-                    sourceBuilder.add(line: "encoder.setThreadgroupMemoryLength(_threadgroupSize.width * _threadgroupSize.height * _threadgroupSize.depth * \(parameter), index: \(index))")
+                    if needsThreadgroupSize {
+                        sourceBuilder.add(line: "encoder.setThreadgroupMemoryLength(_threadgroupSize.width * _threadgroupSize.height * _threadgroupSize.depth * \(parameter), index: \(index))")
+                    }
                 }
             }
 
