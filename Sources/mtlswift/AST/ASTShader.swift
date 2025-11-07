@@ -20,12 +20,13 @@ public struct ASTShader {
         public var kind: Kind
         public var index: Int?
         public var optional: Bool
+        public var stage: ASTShader.Kind
         
         public var description: String {
             return "parameter \(name): \(kind)(\(index ?? -1))"
         }
     }
-    
+
     public var name: String
     public var kind: Kind
     public var parameters: [Parameter]
@@ -177,5 +178,121 @@ public struct ASTShader {
         }
 
         return nil
+    }
+
+    public func renderPipelineEncoder(fragment: ASTShader) -> MTLRenderPipelineEncoder? {
+        guard self.kind == .vertex else { return nil }
+
+        var accessLevel: AccessLevel = .internal
+        if let accessLevelDeclaration = self.customDeclarations.first(of: .accessLevel(level: accessLevel)),
+           case .accessLevel(let level) = accessLevelDeclaration {
+            accessLevel = level
+        }
+
+        let baseClassName: String
+        if let nameDeclaration = self.customDeclarations.first(of: .swiftName(name: "")),
+           case .swiftName(let name) = nameDeclaration {
+            baseClassName = name
+        } else {
+            baseClassName = "\(self.name.capitalizingFirstLetter)"
+        }
+
+        let swiftName = baseClassName.hasSuffix("Pipeline") ? baseClassName : "\(baseClassName)RenderPipeline"
+
+        var swiftNameLookup: [String: String] = [:]
+        var swiftTypeLookup: [String: String] = [:]
+        for declaration in (self.customDeclarations + fragment.customDeclarations) {
+            switch declaration {
+            case .swiftParameterName(let old, let new):
+                swiftNameLookup[old] = new
+            case .swiftParameterType(let parameter, let type):
+                swiftTypeLookup[parameter] = type
+            default:
+                continue
+            }
+        }
+
+        var usedNames = Set<String>()
+        var pipelineParameters: [MTLRenderPipelineEncoder.Parameter] = []
+        let combinedParameters = self.parameters + fragment.parameters
+        for parameter in combinedParameters {
+            guard let index = parameter.index else { continue }
+            guard [.buffer, .texture, .sampler].contains(parameter.kind) else { continue }
+
+            var name = swiftNameLookup[parameter.name] ?? parameter.name
+            if usedNames.contains(name) {
+                let suffix = parameter.stage == .vertex ? "Vertex" : "Fragment"
+                var candidate = name + suffix
+                while usedNames.contains(candidate) {
+                    candidate += suffix
+                }
+                name = candidate
+            }
+            usedNames.insert(name)
+
+            var typeName: String
+            switch parameter.kind {
+            case .buffer:
+                typeName = swiftTypeLookup[parameter.name] ?? "MTLBuffer"
+            case .texture:
+                typeName = swiftTypeLookup[parameter.name] ?? "MTLTexture"
+            case .sampler:
+                typeName = swiftTypeLookup[parameter.name] ?? "MTLSamplerState"
+            default:
+                typeName = "MTLBuffer"
+            }
+
+            if parameter.optional && !typeName.hasSuffix("?") {
+                typeName += "?"
+            }
+
+            let parameterKind: MTLRenderPipelineEncoder.Parameter.Kind
+            switch parameter.kind {
+            case .buffer: parameterKind = .buffer
+            case .texture: parameterKind = .texture
+            case .sampler: parameterKind = .sampler
+            default: continue
+            }
+
+            pipelineParameters.append(
+                MTLRenderPipelineEncoder.Parameter(name: name,
+                                                    swiftTypeName: typeName,
+                                                    kind: parameterKind,
+                                                    stage: parameter.stage,
+                                                    index: index,
+                                                    isOptional: typeName.hasSuffix("?"))
+            )
+        }
+
+        return MTLRenderPipelineEncoder(
+            shaderNameVertex: self.name,
+            shaderNameFragment: fragment.name,
+            swiftName: swiftName,
+            accessLevel: accessLevel,
+            parameters: pipelineParameters,
+            vertexConstants: self.usedConstants,
+            fragmentConstants: fragment.usedConstants
+        )
+    }
+
+    static func matchFragment(for vertex: ASTShader, fragments: [ASTShader], excluding usedNames: Set<String>) -> ASTShader? {
+        let vertexBase = normalizedBaseName(vertex.name, removing: ["_vertex", "vertex"])
+        guard !vertexBase.isEmpty else { return nil }
+        return fragments.first { fragment in
+            guard !usedNames.contains(fragment.name) else { return false }
+            let fragmentBase = normalizedBaseName(fragment.name, removing: ["_fragment", "fragment"])
+            return fragmentBase == vertexBase
+        }
+    }
+
+    private static func normalizedBaseName(_ name: String, removing tokens: [String]) -> String {
+        let lower = name.lowercased()
+        for token in tokens {
+            if lower.hasSuffix(token) {
+                let endIndex = lower.index(lower.endIndex, offsetBy: -token.count)
+                return String(lower[..<endIndex])
+            }
+        }
+        return lower
     }
 }

@@ -101,6 +101,18 @@ final class EncoderGenerator: @unchecked Sendable {
                 builder.blankLine()
             }
 
+            let vertexShaders = shaders.filter { $0.kind == .vertex }
+            let fragmentShaders = shaders.filter { $0.kind == .fragment }
+            var usedFragments = Set<String>()
+            for vertex in vertexShaders {
+                guard let fragment = ASTShader.matchFragment(for: vertex, fragments: fragmentShaders, excluding: usedFragments) else { continue }
+                usedFragments.insert(fragment.name)
+                if let pipelineEncoder = vertex.renderPipelineEncoder(fragment: fragment) {
+                    builder.add(rawString: pipelineEncoder.shaderString)
+                    builder.blankLine()
+                }
+            }
+
             // Save result files near the shaders file if no output is provided.
             if output == nil {
                 let filepath = metalFileURL.appendingPathExtension("swift")
