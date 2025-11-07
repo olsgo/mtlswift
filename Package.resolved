@@ -1,25 +1,24 @@
 {
-  "object": {
-    "pins": [
-      {
-        "package": "Files",
-        "repositoryURL": "https://github.com/JohnSundell/Files",
-        "state": {
-          "branch": null,
-          "revision": "6568bfe636f02dfd85dc9d51b3782555b83080d3",
-          "version": "4.0.2"
-        }
-      },
-      {
-        "package": "swift-argument-parser",
-        "repositoryURL": "https://github.com/apple/swift-argument-parser",
-        "state": {
-          "branch": null,
-          "revision": "8d31a0905c346a45c87773ad50862b5b3df8dff6",
-          "version": "0.0.4"
-        }
+  "originHash" : "020aea821b4ce463a2d22da6faaed5b208508f6ed09e1a3902eea16ddfb3a86f",
+  "pins" : [
+    {
+      "identity" : "files",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/JohnSundell/Files",
+      "state" : {
+        "revision" : "e85f2b4a8dfa0f242889f45236f3867d16e40480",
+        "version" : "4.3.0"
       }
-    ]
-  },
-  "version": 1
+    },
+    {
+      "identity" : "swift-argument-parser",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/apple/swift-argument-parser",
+      "state" : {
+        "revision" : "cdd0ef3755280949551dc26dee5de9ddeda89f54",
+        "version" : "1.6.2"
+      }
+    }
+  ],
+  "version" : 3
 }

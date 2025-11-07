@@ -112,11 +112,11 @@ public class ASTNode {
             _ = scanner.readSingleQuotedTextIfAny()
             scanner.skipWhiteSpaces()
             
-            guard let value = Int(scanner.leftString) else {
-                fatalError(inputString)
+            let parsedValue = scanner.readInt() ?? 0
+            if parsedValue == 0 {
+                Swift.print("Warning: failed to parse integer literal in: \(inputString)")
             }
-            
-            self.integerValue = value
+            self.integerValue = parsedValue
         case .textComment:
             scanner.skipWhiteSpaces()
             scanner.skipHexIfAny()
@@ -245,7 +245,7 @@ public class ASTNode {
                                        .metalTextureIndexAttr,
                                        .metalBufferIndexAttr,
                                        .metalLocalIndexAttr])
-                        .first?.children.first!.integerValue!
+                        .first?.children.first?.integerValue
 
             return ASTShader.Parameter(name: pn.stringValue ?? "_", kind: kind, index: idx, optional: pn.hasChildren(of: .metalFunctionConstantAttr))
         }

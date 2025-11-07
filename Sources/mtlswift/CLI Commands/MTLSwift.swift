@@ -9,19 +9,15 @@ struct MTLSwift: ParsableCommand {
         var inputPaths: [String]
 
         @Option(name: .shortAndLong,
-                help: "Ignored shaders file path.")
-        var ignoreInputPaths: [String]
-
-        @Option(name: .shortAndLong,
                 help: "Generated encoders path.")
         var outputPath: String?
 
         @Flag(name: [.customLong("recursive"), .customShort("r")],
               help: "Recursive search in folders.")
-        var isRecursive: Bool
+        var isRecursive: Bool = false
     }
 
-    static var configuration = CommandConfiguration(
+    static let configuration = CommandConfiguration(
         abstract: "A utility for generating metal shaders encoders.",
         subcommands: [Generate.self, Watch.self],
         defaultSubcommand: Generate.self
@@ -30,10 +26,7 @@ struct MTLSwift: ParsableCommand {
     static func setup(using options: Options) throws -> Set<URL> {
         let shadersFilesURLs = try Self.findShadersFiles(at: options.inputPaths,
                                                          isRecursive: options.isRecursive)
-        let ignoreURLs = try Self.findShadersFiles(at: options.ignoreInputPaths,
-                                                   isRecursive: options.isRecursive)
-
-        return shadersFilesURLs.subtracting(ignoreURLs)
+        return shadersFilesURLs
     }
 
     static func findShadersFiles(at paths: [String], isRecursive: Bool) throws -> Set<URL> {

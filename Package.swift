@@ -1,22 +1,29 @@
-// swift-tools-version:4.2
-// The swift-tools-version declares the minimum version of Swift required to build this package.
+// swift-tools-version: 6.0
 
 import PackageDescription
 
 let package = Package(
     name: "mtlswift",
+    platforms: [
+        .macOS(.v13)
+    ],
     products: [
-        Product.executable(name: "mtlswift",
-                           targets: ["mtlswift"])
+        .executable(name: "mtlswift",
+                    targets: ["mtlswift"])
     ],
     dependencies: [
         .package(url: "https://github.com/apple/swift-argument-parser",
-                 from: "0.0.4"),
+                 from: "1.2.2"),
         .package(url: "https://github.com/JohnSundell/Files",
-                 from: "4.0.2")
+                 from: "4.3.0")
     ],
     targets: [
-        .target(name: "mtlswift",
-                dependencies: ["ArgumentParser", "Files"])
+        .executableTarget(
+            name: "mtlswift",
+            dependencies: [
+                .product(name: "ArgumentParser", package: "swift-argument-parser"),
+                "Files"
+            ]
+        )
     ]
 )

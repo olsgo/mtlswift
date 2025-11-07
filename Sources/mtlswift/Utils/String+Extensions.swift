@@ -1,6 +1,6 @@
 import Foundation
 
-extension String: Error {
+extension String: @retroactive(Error) {
     /// Replaces all occurrences of characters in the provided set with
     /// the provided string.
     func replacing(charactersIn characterSet: CharacterSet,

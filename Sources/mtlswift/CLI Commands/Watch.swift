@@ -16,12 +16,9 @@ extension MTLSwift {
         }
 
         func run() throws {
-            let shadersFilesURLs = try MTLSwift.findShadersFiles(at: self.options.inputPaths,
-                                                                 isRecursive: self.options.isRecursive)
-            let ignoreURLs = try MTLSwift.findShadersFiles(at: self.options.ignoreInputPaths,
-                                                           isRecursive: self.options.isRecursive)
-
-            let shadersFilesFilteredURLs = Array(shadersFilesURLs.subtracting(ignoreURLs))
+            let shadersFilesFilteredURLs = Array(try MTLSwift
+                .findShadersFiles(at: self.options.inputPaths,
+                                  isRecursive: self.options.isRecursive))
             for shadersFileURL in shadersFilesFilteredURLs {
                 let observer = FileObserver(file: shadersFileURL)
                 observer.start {
@@ -40,6 +37,6 @@ extension MTLSwift {
             RunLoop.main.run()
         }
 
-        static var configuration = CommandConfiguration(abstract: "Watch metal sources and autogenerate encoders")
+        static let configuration = CommandConfiguration(abstract: "Watch metal sources and autogenerate encoders")
     }
 }

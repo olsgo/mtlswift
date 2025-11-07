@@ -1,6 +1,6 @@
 import Foundation
 
-final class EncoderGenerator {
+final class EncoderGenerator: @unchecked Sendable {
 
     private init() {}
 
